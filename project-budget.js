@@ -1,0 +1,36 @@
+(()=>{
+const $=s=>document.querySelector(s),form=$('#project-form');let files=[],rows=[],version=0,url=null,busy=false;
+const amounts=[['budget','งบประมาณ'],['paid','จ่ายไปแล้ว'],['payment','จ่ายครั้งนี้'],['remaining','คงเหลือหลังจ่าย']];
+function invalidate(){version++;if(url)URL.revokeObjectURL(url);url=null;$('#budget-preview').replaceChildren();$('#budget-download').hidden=true;$('#project-print').hidden=true;$('#project-status').textContent='ข้อมูลเปลี่ยนแล้ว กรุณาสร้างตัวอย่างใหม่';}
+function add(){rows.push({workCode:'',network:'',activity:'',budget:'',paid:'',balance:'',transfer:'0',available:'',payment:'',remaining:''});invalidate();render();}
+function calculate(r){r.remaining=['budget','paid','payment'].every(k=>r[k]!==''&&Number.isFinite(Number(r[k])))?((Math.round(Number(r.budget)*100)-Math.round(Number(r.paid)*100)-Math.round(Number(r.payment)*100))/100).toFixed(2):'';}
+function render(){const host=$('#project-rows');host.replaceChildren();rows.forEach((r,i)=>{
+ const card=document.createElement('section');card.className='card budget-row';const head=document.createElement('div');head.className='section-head';const title=document.createElement('h2');title.textContent='รายการที่ '+(i+1);const del=document.createElement('button');del.type='button';del.textContent='ลบรายการ';del.disabled=rows.length===1;del.onclick=()=>{rows.splice(i,1);invalidate();render();};head.append(title,del);card.append(head);const grid=document.createElement('div');grid.className='grid';card.append(grid);
+ function field(key,label,options=null,readonly=false){const l=document.createElement('label');l.textContent=label;l.className=options?'budget-choice':readonly?'':'budget-manual';const input=document.createElement(options?'select':'input');input.name=key+'-'+i;input.required=!readonly;
+ if(options){const empty=document.createElement('option');empty.value='';empty.textContent='เลือก'+label;input.append(empty);for(const [value,text]of options){const o=document.createElement('option');o.value=value;o.textContent=text;input.append(o);}}
+ else{input.type=readonly?'text':'number';input.readOnly=readonly;if(!readonly)input.step='.01';}
+ input.value=r[key]||'';input.oninput=()=>{r[key]=input.value;invalidate();};l.append(input);grid.append(l);return input;}
+ const file=files.find(f=>f.code===r.workCode),network=file?.networks.find(n=>n.code===r.network);
+ const work=field('workCode','หมายเลขงาน',files.map(f=>[f.code,f.code+' — '+f.name]));
+ const networks=file?file.networks:files.flatMap(f=>f.networks);
+ const net=field('network','โครงข่าย',networks.map(n=>[n.code,n.code+' — '+n.name]));
+ r.budget=network?.activityBudgets?.[r.activity]??'';r.paid=network?.activitySpent?.[r.activity]??'';calculate(r);
+ const activity=field('activity','กิจกรรม',(network?.expenses||[]).map(e=>[e,e]));activity.oninput=()=>{r.activity=activity.value;r.budget=network?.activityBudgets?.[r.activity]??'';invalidate();render();};
+ r.workName=network?.workName||file?.name||'';r.approval=network?.approval||'';
+ field('workName','ชื่องาน (อัตโนมัติ)',null,true).parentElement.classList.add('budget-wide');field('approval','อนุมัติ (อัตโนมัติ)',null,true).parentElement.classList.add('budget-wide');
+ work.oninput=()=>{r.workCode=work.value;const f=files.find(f=>f.code===r.workCode);r.network=f?.networks.length===1?f.networks[0].code:'';r.activity='';r.budget='';invalidate();render();};
+ net.oninput=()=>{r.network=net.value;const f=files.find(f=>f.networks.some(n=>n.code===r.network));r.workCode=f?.code||'';r.activity='';r.budget='';invalidate();render();};
+ const outputs={};
+ for(const [key,label]of amounts){const input=field(key,label+' (บาท)');outputs[key]=input;if(key!=='payment'){input.readOnly=true;input.parentElement.className='';}}
+ outputs.payment.oninput=()=>{r.payment=outputs.payment.value;calculate(r);outputs.remaining.value=r.remaining;invalidate();};
+ if(network?.conflict){const warning=document.createElement('p');warning.textContent='โครงข่ายนี้มีข้อมูลซ้ำขัดแย้งในต้นทาง กรุณาให้ผู้ดูแลตรวจชีตก่อนใช้งาน';card.append(warning);}
+ host.append(card);
+ });}
+form.addEventListener('input',e=>{if(['description','operationsController','financeController'].includes(e.target.name))invalidate();});
+form.onsubmit=async e=>{e.preventDefault();if(busy||!form.reportValidity())return;invalidate();const v=version;busy=true;$('#project-create').disabled=true;$('#project-status').textContent='กำลังจัดหน้า PDF…';try{const response=await fetch('/api/project-budget/pdf',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({operationsController:form.elements.operationsController.value,financeController:form.elements.financeController.value,description:form.elements.description.value,rows})});const result=await response.json();if(!response.ok)throw Error(result.error);if(v!==version)throw Error('ข้อมูลเปลี่ยนระหว่างสร้าง กรุณาสร้างใหม่');url=URL.createObjectURL(new Blob([Uint8Array.from(atob(result.pdf),c=>c.charCodeAt(0))],{type:'application/pdf'}));$('#budget-preview').replaceChildren(...result.pages.map((p,i)=>{const img=document.createElement('img');img.src='data:image/png;base64,'+p;img.alt='ใบตัดงบแฟ้มงาน หน้า '+(i+1);return img;}));$('#budget-download').href=url;$('#budget-download').hidden=false;$('#project-print').hidden=false;$('#project-status').textContent='สร้างตัวอย่างแล้ว ตรวจเอกสารก่อนพิมพ์หรือดาวน์โหลด';$('#budget-preview').scrollIntoView({behavior:'smooth'});}catch(error){$('#project-status').textContent=error.message;}finally{busy=false;$('#project-create').disabled=false;}};
+$('#project-add').onclick=add;$('#project-print').onclick=async()=>{if(!url)return;await Promise.all(Array.from(document.querySelectorAll('#budget-preview img'),img=>img.decode()));if(url)window.print();};
+window.addEventListener('scroll',()=>{$('#project-top').hidden=scrollY<300;},{passive:true});$('#project-top').onclick=()=>scrollTo({top:0,behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'instant':'smooth'});
+window.applyBudgetMaster=async data=>{files=data.budgetFiles;for(const r of rows){const f=files.find(f=>f.code===r.workCode),n=f?.networks.find(n=>n.code===r.network);if(!n){r.network=r.activity='';if(!f)r.workCode='';}else if(!n.expenses.includes(r.activity))r.activity='';}invalidate();render();};
+document.addEventListener('budget-sync-locked',invalidate);
+fetch('/master-data.json').then(r=>{if(!r.ok)throw Error('อ่านข้อมูลหลังบ้านไม่ได้');return r.json();}).then(m=>{files=m.budgetFiles;for(const [key,pattern]of [['operationsController',/ผปร\.|(?:หผ|ชผ)\.ปร\./],['financeController',/ผบง\.|(?:หผ|ชผ)\.บง\./]]){const select=form.elements[key];const empty=document.createElement('option');empty.value='';empty.textContent='เลือกผู้ควบคุมงบ';select.append(empty);for(const person of m.people.filter(p=>pattern.test(p.position))){const option=document.createElement('option');option.value=JSON.stringify({name:person.name,position:person.position});option.textContent=person.name+' — '+person.position;select.append(option);}}add();$('#project-create').disabled=false;$('#project-status').textContent='พร้อมกรอกข้อมูล';}).catch(e=>{$('#project-status').textContent=e.message;$('#project-add').disabled=true;});
+})();

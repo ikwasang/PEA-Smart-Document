@@ -1,0 +1,11 @@
+from pathlib import Path
+p=Path('prototype/app.js');s=p.read_text(encoding='utf-8');s=s.replace('openDraft();',"const hiringScript=document.createElement('script');hiringScript.src='/hiring-ui.js';hiringScript.onload=()=>openDraft().then(updateDocumentType);hiringScript.onerror=()=>{$('#draft-status').textContent='โหลดโมดูลเอกสารไม่สำเร็จ กรุณาโหลดหน้าใหม่';};document.body.append(hiringScript);")
+p.write_text(s,encoding='utf-8')
+p=Path('prototype/server.py');s=p.read_text(encoding='utf-8').replace("def validate(d):\n", "def validate(d):\n kind=d.get('documentType','purchase')\n if kind not in ['purchase','hiring']:raise ValueError('ประเภทเอกสารไม่ถูกต้อง')\n if kind=='hiring' and (not isinstance(d.get('supervisor'),str) or not d['supervisor'].strip() or len(d['supervisor'])>40):raise ValueError('กรุณาระบุผู้ควบคุมงาน')\n")
+s=s.replace("files={'/master-data.json':", "files={'/hiring-ui.js':ROOT/'hiring-ui.js','/master-data.json':").replace("mime={'/master-data.json':", "mime={'/hiring-ui.js':'text/javascript; charset=utf-8','/master-data.json':")
+p.write_text(s,encoding='utf-8')
+p=Path('template-review/refine_pdf.py');s=p.read_text(encoding='utf-8');s=s.replace('def baht(v):',"hiring=bool(data and data.get('documentType')=='hiring')\ndef wording(t):\n if not hiring:return t\n return t.replace('รายงานขอซื้อ','รายงานขอจ้าง').replace('สั่งซื้อ','สั่งจ้าง').replace('จัดซื้อจัดจ้าง','__LAW__').replace('จัดซื้อ','จัดจ้าง').replace('__LAW__','จัดซื้อจัดจ้าง').replace('ให้แก่ผู้ขาย','ให้แก่ผู้รับจ้าง')\n\ndef baht(v):")
+s=s.replace("c.setTitle('เอกสารจัดซื้อ — PEA Smart Document')","c.setTitle(('เอกสารจัดจ้าง' if hiring else 'เอกสารจัดซื้อ')+' — PEA Smart Document')")
+s=s.replace(' def mapped(t):\n', ' def mapped(t):\n  t=wording(t)\n')
+s=s.replace("y=indented('จึงเรียนมาเพื่อโปรดพิจารณา", "if hiring:\n text(135,cy-9,'8. ขออนุมัติแต่งตั้งผู้ควบคุมงาน',16,True)\n supervisor=data['supervisor'];label='1. '+supervisor+'  '+positions.get(supervisor,'ตำแหน่ง ................................')\n size=15\n while pdfmetrics.stringWidth(label,'PSK',size)>415 and size>10:size-=.25\n text(135,cy-36,label,size);cy-=66\ny=indented('จึงเรียนมาเพื่อโปรดพิจารณา")
+p.write_text(s,encoding='utf-8')

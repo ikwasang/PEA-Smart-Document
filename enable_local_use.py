@@ -1,0 +1,5 @@
+from pathlib import Path
+p=Path('template-review/refine_pdf.py');s=p.read_text(encoding='utf-8').replace(" text(375,19,'ตัวอย่างทดสอบระบบ ไม่ใช้ดำเนินการจริง',10)"," if not data:text(375,19,'ตัวอย่างทดสอบระบบ ไม่ใช้ดำเนินการจริง',10)")
+s=s.replace('if data:\n items=',"if data:\n c.setTitle('เอกสารจัดซื้อ — PEA Smart Document')\n items=");p.write_text(s,encoding='utf-8')
+p=Path('prototype/index.html');s=p.read_text(encoding='utf-8').replace('รุ่นทดลองในเครื่อง','ใช้งานบนเครื่องนี้').replace('ทดลองใช้บนเครื่องนี้','ใช้งานบนเครื่องนี้').replace('เอกสารจัดซื้อ-ทดลอง.pdf','เอกสารจัดซื้อ.pdf');p.write_text(s,encoding='utf-8')
+p=Path('prototype/LOCAL-TRIAL.md');s=p.read_text(encoding='utf-8').replace('# ทดลอง PEA Smart Document บนเครื่องนี้','# ใช้ PEA Smart Document บนเครื่องนี้').replace('รุ่นทดลองนี้บันทึก','รุ่นนี้บันทึก').replace('ขอบเขตทดลอง:','ขอบเขตรุ่นใช้งานบนเครื่องนี้:').replace('PDF ยังมีข้อความตัวอย่างบางส่วน จึงควรตรวจแบบฟอร์มก่อนนำไปใช้ในงานจริง','PDF ที่สร้างจากแบบฟอร์มไม่มีข้อความทดสอบท้ายกระดาษแล้ว ต้องกรอกข้อมูลจริงแทนข้อมูลตั้งต้นและตรวจทุกหน้าก่อนพิมพ์');p.write_text(s,encoding='utf-8')
