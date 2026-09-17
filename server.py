@@ -281,8 +281,12 @@ class Handler(BaseHTTPRequestHandler):
   except (ValueError,KeyError,TypeError,ArithmeticError) as e:self.send(400,{'error':str(e)})
   except Exception:self.send(500,{'error':'สร้าง PDF ไม่สำเร็จ กรุณาตรวจข้อมูลหรือลองใหม่'})
  def log_message(self,*args):pass
-if __name__=='__main__':
- (ROOT/'tmp').mkdir(exist_ok=True)
- print('PSDP prototype: http://127.0.0.1:8765',flush=True)
- ThreadingHTTPServer(('127.0.0.1',8765),Handler).serve_forever()
+if __name__ == '__main__':
+    (ROOT / 'tmp').mkdir(exist_ok=True)
+
+    port = int(os.environ.get('PORT', '8765'))
+    host = '0.0.0.0' if os.environ.get('PORT') else '127.0.0.1'
+
+    print(f'PSDP prototype: http://{host}:{port}', flush=True)
+    ThreadingHTTPServer((host, port), Handler).serve_forever()
 
